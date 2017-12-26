@@ -28,6 +28,6 @@ public class Contact {
     @Override
     public String toString() {
 //        return super.toString();
-        return (this.name+"\n"+this.phoneNumber);
+        return (this.name + "\n" + this.phoneNumber);
     }
 }
