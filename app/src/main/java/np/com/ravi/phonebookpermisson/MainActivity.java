@@ -1,7 +1,6 @@
 package np.com.ravi.phonebookpermisson;
 
 import android.Manifest;
-import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
@@ -15,6 +14,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
@@ -22,7 +22,6 @@ import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
@@ -56,9 +55,22 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         addButton.setOnClickListener(this);
         addContactButton.setOnClickListener(this);
 
-        if (checkForReadContactsPermission()){
+        if (checkForReadContactsPermission()) {
             storeContactsToArrayList();
         }
+
+        userInput.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                String selectedContact = parent.getItemAtPosition(position).toString();
+                String selectedContactNumber = selectedContact.substring(selectedContact.lastIndexOf("\n") + 1);
+                String selectedContactName = selectedContact.substring(0, selectedContact.indexOf("\n"));
+
+                userInput.setText(selectedContactNumber);
+                showToast(selectedContactName);
+            }
+        });
+
     }
 
     private boolean checkForReadContactsPermission() {
@@ -86,7 +98,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
             case R.id.add_contact_button:
                 //check contact read permission
-                if (checkForReadContactsPermission()){
+                if (checkForReadContactsPermission()) {
                     startContactPicker();
                 } else {
                     askForReadContactsPermission();
@@ -156,52 +168,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     private void storeContactsToArrayList() {
         Log.d("In ", "storeContactsToArrayList() called");
+        new FetchContacts(MainActivity.this, new FetchContacts.OnContactFetchListener() {
+            @Override
+            public void onContactFetch(List contacts) {
+                // Here you will get the contacts
+                ArrayAdapter<Contact> contactArrayAdapter = new ArrayAdapter<Contact>(MainActivity.this,
+                        android.R.layout.simple_list_item_1, contacts);
+                userInput.setAdapter(contactArrayAdapter);
 
-        List<Contact> contactList = new ArrayList<>();
-
-        ContentResolver cr = getContentResolver();
-        Cursor cur = cr.query(ContactsContract.Contacts.CONTENT_URI,
-                null, null, null, null);
-
-        if ((cur != null ? cur.getCount() : 0) > 0) {
-            while (cur != null && cur.moveToNext()) {
-                String id = cur.getString(
-                        cur.getColumnIndex(ContactsContract.Contacts._ID));
-                String name = cur.getString(cur.getColumnIndex(
-                        ContactsContract.Contacts.DISPLAY_NAME));
-
-                if (cur.getInt(cur.getColumnIndex(
-                        ContactsContract.Contacts.HAS_PHONE_NUMBER)) > 0) {
-                    Cursor pCur = cr.query(
-                            ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-                            null,
-                            ContactsContract.CommonDataKinds.Phone.CONTACT_ID + " = ?",
-                            new String[]{id}, null);
-                    while (pCur.moveToNext()) {
-                        String phoneNo = pCur.getString(pCur.getColumnIndex(
-                                ContactsContract.CommonDataKinds.Phone.NUMBER));
-//                        Log.i("GOT", "Name: " + name);
-//                        Log.i("GOT", "Phone Number: " + phoneNo); //working
-                        //To our POJO
-                        Contact contact = new Contact();
-                        contact.setName(name);
-                        contact.setPhoneNumber(phoneNo);
-
-                        contactList.add(contact);
-
-                    }
-                    pCur.close();
-                }
-                ArrayAdapter<Contact> contactsArrayAdapter =
-                        new ArrayAdapter<Contact>(this, android.R.layout.simple_list_item_1, contactList);
-
-                //setting this adapter to our autocompleteTextView userInput
-                userInput.setAdapter(contactsArrayAdapter);
             }
-        }
-        if(cur!=null){
-            cur.close();
-        }
+        }).execute();
+
     }
 
     private void startContactPicker() {
@@ -257,4 +234,5 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public void showToast(String message) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
+
 }
